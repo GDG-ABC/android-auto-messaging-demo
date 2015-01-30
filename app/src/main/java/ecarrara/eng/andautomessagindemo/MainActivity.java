@@ -58,7 +58,10 @@ public class MainActivity extends Activity {
      */
     public static class PlaceholderFragment extends Fragment {
 
-        private static final String CONVERSATION_ID = "the_conversation";
+        private static final int CONVERSATION_ID = 1;
+        private static final String CONVERSATION_SUBJECT = "no subject";
+        private static final String CONTACT_NAME = "myself";
+
 
         private ListView mMessagesListView;
         private EditText mNewMessageEditText;
@@ -96,7 +99,11 @@ public class MainActivity extends Activity {
                 public void onClick(View v) {
                     String message = mNewMessageEditText.getText().toString();
                     mMessageListHistoryAdapter.add(message);
-                    mAutoDemoNotificationManager.notifyUser(CONVERSATION_ID, mMessageListHistory);
+                    mAutoDemoNotificationManager.notifyUser(
+                            CONVERSATION_ID,
+                            CONVERSATION_SUBJECT,
+                            CONTACT_NAME,
+                            message);
                     mNewMessageEditText.setText("");
                 }
             });

@@ -1,25 +1,36 @@
 package ecarrara.eng.andautomessagindemo;
 
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.TaskStackBuilder;
+import android.app.UiModeManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.app.RemoteInput;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Date;
 
 /**
  * Created by ecarrara on 30/01/2015.
  */
 public class AutoDemoNotificationManager {
 
+    public static final String ACTION_MESSAGE_HEARD =
+            "ecarrara.eng.andautomessagindemo.AutoDemoNotificationManager.ACTION_MESSAGE_HEARD";
+    public static final String ACTION_MESSAGE_REPLY =
+            "ecarrara.eng.andautomessagindemo.AutoDemoNotificationManager.ACTION_MESSAGE_REPLY";
+
     public static final String NOTIFICATION_GROUP = "group_key_auto_demo";
+    public static final String EXTRA_VOICE_REPLY = "voice_reply";
+    public static final int CONVERSATION_ID = 1;
 
     private Context mContext;
-    private NotificationManager mNotificationManager;
+    private UiModeManager mUiModeManager;
+    private NotificationManagerCompat mNotificationManagerCompat;
     private NotificationCompat.Builder mNotificationBuilder;
     private ArrayList<Notification> mNotifications;
     private ArrayList<String> mSummarizedMessages;
@@ -27,58 +38,106 @@ public class AutoDemoNotificationManager {
     public AutoDemoNotificationManager(Context context) {
 
         mContext = context;
-        mNotificationManager =
-                (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManagerCompat = NotificationManagerCompat.from(mContext);
         mNotificationBuilder = new NotificationCompat.Builder(mContext);
         mNotifications = new ArrayList<Notification>();
         mSummarizedMessages = new ArrayList<String>();
+        mUiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
 
     }
 
-    public void notifyUser(String conversationId, List<String> messages) {
-        if(messages.size() > 0) {
-            for (String message : messages) {
-                mNotifications.add(buildBasicNotification(message, conversationId));
-            }
+    public void notifyUser(int conversationId, String conversationSubject,
+                           String contactName, String message) {
 
-            if(mNotifications.size() > 0) {
-                mNotificationManager.cancelAll();
-            }
+        Notification notification = buildNotification(
+                conversationId,
+                conversationSubject,
+                contactName,
+                message);
 
-            for (Notification notification : mNotifications) {
-                mNotificationManager.notify(0, notification);
-            }
-
-            if (mNotifications.size() > 1) {
-                mNotificationManager.notify(0, builBasicSummaryNotification());
-            }
-         }
-
+        mNotificationManagerCompat.notify(0, notification);
     }
 
-    private Notification buildBasicNotification(String message, String conversation) {
+    private boolean isInCarMode() {
+        return mUiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_CAR ? true : false;
+    }
 
-        mNotificationBuilder.setSmallIcon(R.drawable.ic_launcher)
-                .setContentTitle(conversation)
+    private Notification buildNotification(int conversationId, String conversationSubject,
+                                           String contactName, String message) {
+
+        prepareBasicNotification(conversationSubject, contactName, message);
+
+        //if(isInCarMode()) {
+            // Build a RemoteInput for receiving voice input in a Car Notification
+            RemoteInput remoteInput = new RemoteInput.Builder(EXTRA_VOICE_REPLY)
+                    .setLabel(conversationSubject)
+                    .build();
+
+            // Conversation Read Intent for read action callback
+            Intent msgHeardIntent = new Intent()
+                    .addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                    .setAction("ecarrara.eng.andautomessagindemo.AutoDemoNotificationManager.ACTION_MESSAGE_HEARD")
+                    .putExtra("conversation_id", conversationId);
+
+            PendingIntent msgHeardPendingIntent = PendingIntent.getBroadcast(
+                    mContext,
+                    conversationId,
+                    msgHeardIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+
+            // Conversation Reply Intent for reply callback
+            Intent msgReplyIntent = new Intent()
+                    .addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                    .setAction("ecarrara.eng.andautomessagindemo.AutoDemoNotificationManager.ACTION_MESSAGE_REPLY")
+                    .putExtra("conversation_id", conversationId);
+
+            PendingIntent msgReplyPendingIntent = PendingIntent.getBroadcast(
+                    mContext,
+                    conversationId,
+                    msgReplyIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+
+            // Create an unread conversation object to organize a group of messages
+            // from a particular sender.
+            NotificationCompat.CarExtender.UnreadConversation.Builder unreadConversationBuilder =
+                    new NotificationCompat.CarExtender.UnreadConversation.Builder(conversationSubject)
+                            .setReadPendingIntent(msgHeardPendingIntent)
+                            .setReplyAction(msgReplyPendingIntent, remoteInput);
+
+            final long timestamp = (new Date()).getTime();
+
+            unreadConversationBuilder.addMessage(message);
+            unreadConversationBuilder.setLatestTimestamp(timestamp);
+
+            mNotificationBuilder
+                    .setWhen(timestamp)
+                    .setContentIntent(msgHeardPendingIntent)
+                    .extend(new NotificationCompat.CarExtender()
+                            .setUnreadConversation(unreadConversationBuilder.build()));
+//        } else {
+//            // explicit intent that will be called when the user touches the notification.
+//            Intent resultIntent = new Intent(mContext, MainActivity.class);
+//
+//            // artificial back stack to ensure that the user go back to the correct location
+//            TaskStackBuilder stackBuilder = TaskStackBuilder.create(mContext);
+//            stackBuilder.addParentStack(MainActivity.class);
+//            stackBuilder.addNextIntent(resultIntent);
+//            PendingIntent resultPendingIntent = stackBuilder.getPendingIntent(
+//                    0, PendingIntent.FLAG_UPDATE_CURRENT);
+//
+//            mNotificationBuilder.setContentIntent(resultPendingIntent);
+//        }
+
+        return mNotificationBuilder.build();
+    }
+
+    private void prepareBasicNotification(String conversationSubject,
+                                                  String contactName, String message) {
+        mNotificationBuilder
+                .setSmallIcon(R.drawable.ic_launcher)
+                .setContentTitle(conversationSubject)
                 .setContentText(message)
                 .setGroup(NOTIFICATION_GROUP);
-
-        // store the message to use in the summary notification
-        mSummarizedMessages.add(message);
-
-        // explicit intent that will be called when the user touches the notification.
-        Intent resultIntent = new Intent(mContext, MainActivity.class);
-
-        // artificial back stack to ensure that the user go back to the correct location
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(mContext);
-        stackBuilder.addParentStack(MainActivity.class);
-        stackBuilder.addNextIntent(resultIntent);
-        PendingIntent resultPendingIntent = stackBuilder.getPendingIntent(
-                0, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        mNotificationBuilder.setContentIntent(resultPendingIntent);
-        return mNotificationBuilder.build();
-
     }
 
     private Notification builBasicSummaryNotification() {
