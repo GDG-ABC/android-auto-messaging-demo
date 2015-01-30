@@ -96,7 +96,7 @@ public class MainActivity extends Activity {
                 public void onClick(View v) {
                     String message = mNewMessageEditText.getText().toString();
                     mMessageListHistoryAdapter.add(message);
-                    mAutoDemoNotificationManager.notifyUser(CONVERSATION_ID, message);
+                    mAutoDemoNotificationManager.notifyUser(CONVERSATION_ID, mMessageListHistory);
                     mNewMessageEditText.setText("");
                 }
             });

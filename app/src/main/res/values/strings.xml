@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <string name="app_name">AndAutoMessaginDemo</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="send">Send</string>
+
+    <string name="format_messages_pendind">
+        <xliff:g id="number_of_messages">%1$d</xliff:g> messages pending
+    </string>
 
 </resources>
